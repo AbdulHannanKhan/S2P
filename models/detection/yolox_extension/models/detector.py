@@ -27,6 +27,8 @@ class YoloXDetector(th.nn.Module):
 
         in_channels = self.backbone.get_stage_dims(fpn_cfg.in_stages)
         self.fpn = build_yolox_fpn(fpn_cfg, in_channels=in_channels)
+        if hasattr(self.fpn, 'backlinks'):
+            self.fpn.backlinks.append(self)
 
         strides = self.backbone.get_strides(fpn_cfg.in_stages)
         self.yolox_head = build_yolox_head(head_cfg, in_channels=in_channels, strides=strides)
