@@ -24,16 +24,17 @@ class YOLODFDNHead(nn.Module):
             self,
             num_classes=80,
             strides=(8, 16, 32),
-            in_channels=(64, 64, 64),
+            in_channels=(8, 32, 128),
             feat_channels=(32, 32, 32),
-            patch_dim=(8, 4, 2),
+            patch_dim=(4, 2, 1),
             act="silu",
             depthwise=False,
             compile_cfg: Optional[Dict] = None,
     ):
         super().__init__()
 
-        self.feature_channels = feat_channels
+        self.feat_channels = feat_channels
+        self.in_channels = in_channels
         self.patch_dim = patch_dim
         self.width = None
         self.height = None
@@ -52,18 +53,17 @@ class YOLODFDNHead(nn.Module):
 
         for i in range(len(in_channels)):
             self.stems.append(nn.Sequential(
-                MixerBlock(self.patch_dim ** 2, self.in_channels[i]),
+                MixerBlock(self.patch_dim[i] ** 2, self.in_channels[i]),
                 nn.Linear(self.in_channels[i], self.feat_channels[i])
             ))
 
             self.pos_mlp.append(nn.Sequential(
-                MixerBlock(self.patch_dim ** 2, self.feat_channels[i]),
+                MixerBlock(self.patch_dim[i] ** 2, self.feat_channels[i]),
                 nn.Linear(self.feat_channels[i], self.num_classes),
             ))
 
             self.reg_feat.append(nn.Sequential(
-                MixerBlock(self.patch_dim ** 2, self.feat_channels[i]),
-                nn.Linear(self.feat_channels[i], 4)
+                MixerBlock(self.patch_dim[i] ** 2, self.feat_channels[i]),
             ))
 
             self.reg_mlp.append(nn.Linear(self.feat_channels[i], 4))
@@ -109,9 +109,10 @@ class YOLODFDNHead(nn.Module):
             h = int(self.height)
             w = int(self.width)
 
-            cls_output = window_reverse(cls_output, self.patch_dim[k], w, h)
-            reg_output = window_reverse(reg_output, self.patch_dim[k], w, h)
-            obj_output = window_reverse(obj_output, self.patch_dim[k], w, h)
+            ds_factor = 2 ** k
+            cls_output = window_reverse(cls_output, self.patch_dim[k], w // ds_factor, h // ds_factor)
+            reg_output = window_reverse(reg_output, self.patch_dim[k], w // ds_factor, h // ds_factor)
+            obj_output = window_reverse(obj_output, self.patch_dim[k], w // ds_factor, h // ds_factor)
 
             if self.training:
                 output = torch.cat([reg_output, obj_output, cls_output], 1)

@@ -12,12 +12,12 @@ def build_yolox_head(head_cfg: DictConfig, in_channels: Tuple[int, ...], strides
     head_cfg_dict = OmegaConf.to_container(head_cfg, resolve=True, throw_on_missing=True)
     head_name = head_cfg_dict.pop('name')
     head_cfg_dict.pop('version', None)
-    head_cfg_dict.update({"in_channels": in_channels})
     head_cfg_dict.update({"strides": strides})
     compile_cfg = head_cfg_dict.pop('compile', None)
     head_cfg_dict.update({"compile_cfg": compile_cfg})
-    if head_name in {'YOLODFNF', 'YOLO_DFDN'}:
+    if head_name in {'YOLODFDN', 'YOLO_DFDN'}:
         return YOLODFDNHead(**head_cfg_dict)
+    head_cfg_dict.update({"in_channels": in_channels})
     return YOLOXHead(**head_cfg_dict)
 
 
