@@ -15,6 +15,7 @@ model:
     mixer_count: 1
   head:
     name: YOLODFDN
+    in_channels: [8, 32, 128]
     compile:
       enable: False
       args:
