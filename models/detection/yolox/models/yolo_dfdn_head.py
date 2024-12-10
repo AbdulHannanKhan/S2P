@@ -22,7 +22,7 @@ from .network_blocks import BaseConv, DWConv
 class YOLODFDNHead(nn.Module):
     def __init__(
             self,
-            num_classes=80,
+            num_classes=2,
             strides=(8, 16, 32),
             in_channels=(8, 32, 128),
             feat_channels=(32, 32, 32),
@@ -254,12 +254,23 @@ class YOLODFDNHead(nn.Module):
         for batch_idx in range(outputs.shape[0]):
             num_gt = int(nlabel[batch_idx])
             num_gts += num_gt
-            if num_gt == 0:
+
+            gt_bboxes_per_image = labels[batch_idx, :num_gt, 1:5]
+            fg_mask, geometry_relation = self.get_geometry_constraint(
+                gt_bboxes_per_image,
+                expanded_strides,
+                x_shifts,
+                y_shifts,
+            )
+
+            if num_gt == 0 or fg_mask.sum().item() == 0:
                 cls_target = outputs.new_zeros((0, self.num_classes))
                 reg_target = outputs.new_zeros((0, 4))
                 l1_target = outputs.new_zeros((0, 4))
                 obj_target = outputs.new_zeros((total_num_anchors, 1))
                 fg_mask = outputs.new_zeros(total_num_anchors).bool()
+                if fg_mask.sum().item() == 0:
+                    print("\tNo suitable anchors! Skipping!")
             else:
                 gt_bboxes_per_image = labels[batch_idx, :num_gt, 1:5]
                 gt_classes = labels[batch_idx, :num_gt, 0]
