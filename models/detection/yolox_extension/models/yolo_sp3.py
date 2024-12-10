@@ -24,13 +24,13 @@ class YOLOSP3(nn.Module):
 
     def __init__(
             self,
-            depth: float = 1.0,
             in_stages: Tuple[int, ...] = (2, 3, 4),
             in_channels: Tuple[int, ...] = (256, 512, 1024),
             patch_dim: int = 8,
             feat_channels: Tuple[int, ...] = (8, 16, 128),
             mixer_count: int = 1,
             compile_cfg: Optional[Dict] = None,
+            **kwargs,
     ):
         super().__init__()
         self.feat_channels = feat_channels
@@ -63,6 +63,7 @@ class YOLOSP3(nn.Module):
 
         self.intpr = nn.ModuleList()
         self.inner = nn.ModuleList()
+        self.final_norm_act = nn.ModuleList()
 
         for i in range(len(self.feat_channels)):
             tokens = self._feat_tokens(i)
@@ -76,16 +77,16 @@ class YOLOSP3(nn.Module):
             )
             if i == 0:
                 self.inner.append(nn.Identity())
+                self.final_norm_act.append(nn.Sequential(nn.GELU()))
             else:
                 self.inner.append(nn.Linear(exposure + self.mix_nodes[i - 1], self.mix_nodes[i]))
-
-        self.final_norm_act = nn.Sequential(nn.LayerNorm(self.out_channels), nn.GELU())
+                self.final_norm_act.append(nn.Sequential(nn.LayerNorm(self.mix_nodes[i]), nn.GELU()))
 
         self.mixers = nn.ModuleList()
         for i in range(len(self.feat_channels)):
             if self.mixer_count > 0:
                 self.mixers.append(nn.Sequential(*[
-                    MixerBlock((self._lvl_patch_dim(i)) ** 2, self.out_channels) for _ in range(self.mixer_count)
+                    MixerBlock((self._lvl_patch_dim(i)) ** 2, self.mix_nodes[i]) for _ in range(self.mixer_count)
                 ]))
 
         ###### Compile if requested ######
@@ -127,7 +128,7 @@ class YOLOSP3(nn.Module):
         feats = None
         for i in range(self.start_idx, len(self.feat_channels)):
 
-            part = self.window_partition(inputs[i], self._lvl_patch_dim(i), channel_last=False)
+            part = window_partition(inputs[i], self._lvl_patch_dim(i), channel_last=False)
             print("Shape after partition: ", part.shape) if debug else None
             part = th.flatten(part, -2)
             print("Shape after flatten: ", part.shape) if debug else None
@@ -146,7 +147,7 @@ class YOLOSP3(nn.Module):
         for i, part in enumerate(parts):
 
             out = part.view(B, T, self._lvl_patch_dim(i) ** 2, self.out_channels)
-            out = self.final_norm_act(out)
+            out = self.final_norm_act[i](out)
             print("Shape after view: ", out.shape) if debug else None
 
             if self.mixers is not None:
@@ -155,7 +156,7 @@ class YOLOSP3(nn.Module):
         ######## Only for debugging ########
         for i, output in enumerate(outputs):
             ds_factor = 2 ** i
-            feats = self.window_reverse(output, self._lvl_patch_dim(i), H4 // ds_factor, W4 // ds_factor)
+            feats = window_reverse(output, self._lvl_patch_dim(i), H4 // ds_factor, W4 // ds_factor)
             print("Shape after windows reverse: ", feats.shape) if debug else None
         exit() if debug else None
 

@@ -1,0 +1,26 @@
+# @package _global_
+defaults:
+  - default
+
+model:
+  backbone:
+    embed_dim: 64
+  fpn:
+    name: SP3
+    compile:
+      enable: False
+      args:
+        mode: reduce-overhead
+    in_stages: [2, 3, 4]
+    mixer_count: 1
+  head:
+    name: YOLODFDN
+    compile:
+      enable: False
+      args:
+        mode: reduce-overhead
+    act: "silu"
+
+validation:
+  val_check_interval: 10000
+  check_val_every_n_epoch: null

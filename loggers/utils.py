@@ -23,6 +23,7 @@ def get_wandb_logger(full_config: DictConfig) -> WandbLogger:
         project=wandb_config.project_name,
         group=wandb_config.group_name,
         wandb_id=wandb_id,
+        entity="mlpthesis",
         log_model=True,
         save_last_only_final=False,
         save_code=True,
