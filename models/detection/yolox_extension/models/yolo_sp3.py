@@ -122,8 +122,8 @@ class YOLOSP3(nn.Module):
         x2, x1, x0 = inputs
 
         B, _, W4, H4 = x2.shape
-        self.backlinks[0].yolox_head.width = H4
-        self.backlinks[0].yolox_head.height = W4
+        self.backlinks[0].yolox_head.width = W4
+        self.backlinks[0].yolox_head.height = H4
 
         parts = []
         feats = None
