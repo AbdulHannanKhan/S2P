@@ -25,9 +25,9 @@ class YOLOSP3(nn.Module):
     def __init__(
             self,
             in_stages: Tuple[int, ...] = (2, 3, 4),
-            in_channels: Tuple[int, ...] = (256, 512, 1024),
+            in_channels: Tuple[int, ...] = (128, 256, 512),
             patch_dim: int = 8,
-            feat_channels: Tuple[int, ...] = (8, 32, 128),
+            feat_channels: Tuple[int, ...] = (4, 16, 64),
             mixer_count: int = 1,
             compile_cfg: Optional[Dict] = None,
             **kwargs,
@@ -54,7 +54,7 @@ class YOLOSP3(nn.Module):
         self.mixer_count = mixer_count
         self.patch_dim = patch_dim
         self.feat_channels = feat_channels
-        self.mix_nodes = [128, 128, 128]
+        self.mix_nodes = [64, 64, 64]
         self.start_idx = 0
 
         self.last_featmap_dim = self.patch_dim // 8

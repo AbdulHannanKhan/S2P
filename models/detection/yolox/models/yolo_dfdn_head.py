@@ -24,7 +24,7 @@ class YOLODFDNHead(nn.Module):
             self,
             num_classes=2,
             strides=(8, 16, 32),
-            in_channels=(8, 32, 128),
+            in_channels=(4, 16, 64),
             feat_channels=(32, 32, 32),
             patch_dim=(4, 2, 1),
             act="silu",
@@ -53,7 +53,7 @@ class YOLODFDNHead(nn.Module):
 
         for i in range(len(in_channels)):
             self.stems.append(nn.Sequential(
-                MixerBlock(self.patch_dim[i] ** 2, self.in_channels[i]),
+                # MixerBlock(self.patch_dim[i] ** 2, self.in_channels[i]),
                 nn.Linear(self.in_channels[i], self.feat_channels[i])
             ))
 
@@ -76,6 +76,9 @@ class YOLODFDNHead(nn.Module):
         self.strides = strides
         self.grids = [torch.zeros(1)] * len(in_channels)
 
+        # According to Focal Loss paper:
+        self.initialize_biases(prior_prob=0.01)
+
         ###### Compile if requested ######
         if compile_cfg is not None:
             compile_mdl = compile_cfg['enable']
@@ -84,6 +87,17 @@ class YOLODFDNHead(nn.Module):
             elif compile_mdl:
                 print('Could not compile YOLOXHead because torch.compile is not available')
         ##################################
+
+    def initialize_biases(self, prior_prob):
+        for l in self.obj_mlp:
+            b = l.bias.view(1, -1)
+            b.data.fill_(-math.log((1 - prior_prob) / prior_prob))
+            l.bias = torch.nn.Parameter(b.view(-1), requires_grad=True)
+
+        for l in self.pos_mlp:
+            b = l[1].bias.view(1, -1)
+            b.data.fill_(-math.log((1 - prior_prob) / prior_prob))
+            l[1].bias = torch.nn.Parameter(b.view(-1), requires_grad=True)
 
     def forward(self, xin, labels=None):
         train_outputs = []
