@@ -283,8 +283,8 @@ class YOLODFDNHead(nn.Module):
                 l1_target = outputs.new_zeros((0, 4))
                 obj_target = outputs.new_zeros((total_num_anchors, 1))
                 fg_mask = outputs.new_zeros(total_num_anchors).bool()
-                if fg_mask.sum().item() == 0:
-                    print("\tNo suitable anchors! Skipping!")
+                # if fg_mask.sum().item() == 0:
+                #     print("\tNo suitable anchors! Skipping!")
             else:
                 gt_bboxes_per_image = labels[batch_idx, :num_gt, 1:5]
                 gt_classes = labels[batch_idx, :num_gt, 0]
