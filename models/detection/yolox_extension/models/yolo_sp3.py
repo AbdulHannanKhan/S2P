@@ -77,10 +77,10 @@ class YOLOSP3(nn.Module):
             )
             if i == 0:
                 self.inner.append(nn.Linear(exposure, self.mix_nodes[i]))
-                self.final_norm_act.append(nn.Sequential(nn.GELU()))
+                # self.final_norm_act.append(nn.Sequential(nn.GELU()))
             else:
                 self.inner.append(nn.Linear(exposure + self.mix_nodes[i - 1], self.mix_nodes[i]))
-                self.final_norm_act.append(nn.Sequential(nn.LayerNorm(self.feat_channels[i]), nn.GELU()))
+                # self.final_norm_act.append(nn.Sequential(nn.LayerNorm(self.feat_channels[i]), nn.GELU()))
 
         self.mixers = nn.ModuleList()
         for i in range(len(self.feat_channels)):
@@ -147,7 +147,7 @@ class YOLOSP3(nn.Module):
         outputs = []
         for i, part in enumerate(parts):
             out = part.view(B, T, self._lvl_patch_dim(i) ** 2, self.feat_channels[i])
-            out = self.final_norm_act[i](out)
+            # out = self.final_norm_act[i](out)
             print("Shape after view: ", out.shape) if debug else None
 
             if self.mixers is not None:
