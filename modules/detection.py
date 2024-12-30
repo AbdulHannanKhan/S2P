@@ -19,6 +19,8 @@ from utils.padding import InputPadderFromShape
 from .utils.detection import BackboneFeatureSelector, EventReprSelector, RNNStates, Mode, mode_2_string, \
     merge_mixed_batches
 
+from utils.timers import CudaTimer
+from tqdm import trange
 
 class Module(pl.LightningModule):
     def __init__(self, full_config: DictConfig):
@@ -280,10 +282,12 @@ class Module(pl.LightningModule):
         return output
 
     def validation_step(self, batch: Any, batch_idx: int) -> Optional[STEP_OUTPUT]:
-        return self._val_test_step_impl(batch=batch, mode=Mode.VAL)
+        with CudaTimer(device=self.device, timer_name="val_step"):
+            return self._val_test_step_impl(batch=batch, mode=Mode.VAL)
 
     def test_step(self, batch: Any, batch_idx: int) -> Optional[STEP_OUTPUT]:
-        return self._val_test_step_impl(batch=batch, mode=Mode.TEST)
+        with CudaTimer(device=self.device, timer_name="test_step"):
+            return self._val_test_step_impl(batch=batch, mode=Mode.TEST)
 
     def run_psee_evaluator(self, mode: Mode):
         psee_evaluator = self.mode_2_psee_evaluator[mode]
