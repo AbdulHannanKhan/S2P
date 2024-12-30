@@ -16,6 +16,7 @@ model:
   head:
     name: YOLODFDN
     in_channels: [4, 16, 64]
+    use_background_mask: False
     compile:
       enable: False
       args:

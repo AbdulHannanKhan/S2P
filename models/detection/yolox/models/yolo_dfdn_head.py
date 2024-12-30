@@ -3,6 +3,7 @@ Original Yolox Head code with slight modifications
 """
 import math
 from typing import Dict, Optional
+import numpy as np
 
 import torch
 import torch.nn as nn
@@ -27,6 +28,8 @@ class YOLODFDNHead(nn.Module):
             in_channels=(4, 16, 64),
             feat_channels=(32, 32, 32),
             patch_dim=(4, 2, 1),
+            use_background_mask=False,
+            loss_4g_weight=0.1,
             act="silu",
             depthwise=False,
             compile_cfg: Optional[Dict] = None,
@@ -38,6 +41,8 @@ class YOLODFDNHead(nn.Module):
         self.patch_dim = patch_dim
         self.width = None
         self.height = None
+        self.w4g = loss_4g_weight
+        self.use_background_mask = use_background_mask
 
         self.num_classes = num_classes
         self.decode_in_inference = True  # for deploy, set to False
@@ -47,6 +52,7 @@ class YOLODFDNHead(nn.Module):
         self.reg_feat = nn.ModuleList()
         self.obj_mlp = nn.ModuleList()
         self.stems = nn.ModuleList()
+        self.masks = nn.ModuleList()
 
         self.output_strides = None
         self.output_grids = None
@@ -56,6 +62,12 @@ class YOLODFDNHead(nn.Module):
                 # MixerBlock(self.patch_dim[i] ** 2, self.in_channels[i]),
                 nn.Linear(self.in_channels[i], self.feat_channels[i])
             ))
+
+            if self.use_background_mask:
+                self.masks.append(nn.Sequential(
+                    nn.Linear(self.in_channels[i] * self.patch_dim[i] ** 2, 1),
+                    nn.Sigmoid(),
+                ))
 
             self.pos_mlp.append(nn.Sequential(
                 MixerBlock(self.patch_dim[i] ** 2, self.feat_channels[i]),
@@ -106,10 +118,23 @@ class YOLODFDNHead(nn.Module):
         x_shifts = []
         y_shifts = []
         expanded_strides = []
+        exposed_alphas = []
 
         for k, (cls_branch, reg_branch, stride_this_level, x) in enumerate(
             zip(self.pos_mlp, self.reg_feat, self.strides, xin)
         ):
+
+            if self.use_background_mask:
+                B, G, P, C = x.shape
+                x = x.view(B, G, P * C)
+                alpha = self.masks[k](x)
+                alpha_d = alpha.detach()
+                alpha_t = alpha_d > 0.5
+                exposed_alpha = (alpha_t + alpha - alpha_d)  # to preserve gradients
+                x = x * exposed_alpha
+                x = x.view(B, G, P, C)
+                exposed_alphas.append(exposed_alpha)
+
             x = self.stems[k](x)
             cls_x = x
             reg_x = x
@@ -179,6 +204,13 @@ class YOLODFDNHead(nn.Module):
                 "l1_loss": losses[4],
                 "num_fg": losses[5],
             }
+            if self.use_background_mask and len(exposed_alphas) > 0:
+                losses["4g_loss"] = sum([torch.mean(alpha) for alpha in exposed_alphas]) / len(exposed_alphas)
+                losses["loss"] += self.w4g * losses["4g_loss"]
+
+                if np.random.rand() < 0.1:
+                    print(losses)
+
         self.hw = [x.shape[-2:] for x in inference_outputs]
         # [batch, n_anchors_all, 85]
         outputs = torch.cat(
