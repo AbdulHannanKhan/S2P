@@ -76,9 +76,16 @@ def main(config: DictConfig):
     # ---------------------
     logger = get_wandb_logger(config)
     ckpt_path = None
+
+    resume_from = config.training.get('resume_from', None)
+
     if config.wandb.artifact_name is not None:
         ckpt_path = get_ckpt_path(logger, wandb_config=config.wandb)
 
+    load_from = config.training.get('load_from', None)
+    if load_from is not None:
+        ckpt_path = load_from
+        config.wandb.resume_only_weights = True
     # ---------------------
     # Model
     # ---------------------
@@ -135,6 +142,12 @@ def main(config: DictConfig):
         benchmark=config.reproduce.benchmark,
         deterministic=config.reproduce.deterministic_flag,
     )
+
+
+    if resume_from is not None:
+        ckpt_path = resume_from
+        print("\n/***\nResuming From ", resume_from, " \n ***/\n")
+
     trainer.fit(model=module, ckpt_path=ckpt_path, datamodule=data_module)
 
 
