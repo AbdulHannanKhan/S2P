@@ -54,7 +54,7 @@ class YOLOSP3(nn.Module):
         self.mixer_count = mixer_count
         self.patch_dim = patch_dim
         self.feat_channels = feat_channels
-        self.mix_nodes = [64, 64, 64]
+        self.mix_nodes = [feat_channels[-1]] * 3
         self.start_idx = 0
 
         self.last_featmap_dim = self.patch_dim // 8
